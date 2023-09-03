@@ -401,7 +401,7 @@ func TestAddFromReserves(t *testing.T) {
 func TestMoveUnusableTile(t *testing.T) {
 	b := NewBoard()
 	for i := 0; i < 4; i++ {
-		err := b.Move(0, 0, 1, Direction(i), RED)
+		err := b.Move(0, 0, 1, []Direction{Direction(i)}, RED)
 		if err != ErrTileSourceNonUsable {
 			t.Errorf("Expected MoveErrorTileSourceNonUsable, got %v", err)
 		}
@@ -411,7 +411,7 @@ func TestMoveUnusableTile(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
-	err = b.Move(0, 2, 1, UP, RED)
+	err = b.Move(0, 2, 1, []Direction{UP}, RED)
 	if err != ErrTileDestinationUnusable {
 		t.Errorf("Expected MoveErrorTileDestNonUsable, got %v", err)
 	}
@@ -420,7 +420,7 @@ func TestMoveUnusableTile(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
-	err = b.Move(0, 5, 1, DOWN, RED)
+	err = b.Move(0, 5, 1, []Direction{DOWN}, RED)
 	if err != ErrTileDestinationUnusable {
 		t.Errorf("Expected MoveErrorTileDestNonUsable, got %v", err)
 	}
@@ -429,7 +429,7 @@ func TestMoveUnusableTile(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
-	err = b.Move(2, 0, 1, LEFT, RED)
+	err = b.Move(2, 0, 1, []Direction{LEFT}, RED)
 	if err != ErrTileDestinationUnusable {
 		t.Errorf("Expected MoveErrorTileDestNonUsable, got %v", err)
 	}
@@ -438,7 +438,20 @@ func TestMoveUnusableTile(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
-	err = b.Move(5, 0, 1, RIGHT, RED)
+	err = b.Move(5, 0, 1, []Direction{RIGHT}, RED)
+	if err != ErrTileDestinationUnusable {
+		t.Errorf("Expected MoveErrorTileDestNonUsable, got %v", err)
+	}
+
+	err = b.AddPiece(5, 1, Piece{Color: RED, Exists: true}, RED)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	err = b.AddPiece(5, 1, Piece{Color: RED, Exists: true}, RED)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	err = b.Move(5, 1, 2, []Direction{UP, RIGHT}, RED)
 	if err != ErrTileDestinationUnusable {
 		t.Errorf("Expected MoveErrorTileDestNonUsable, got %v", err)
 	}
@@ -446,19 +459,19 @@ func TestMoveUnusableTile(t *testing.T) {
 
 func TestMoveOutOfBounds(t *testing.T) {
 	b := NewBoard()
-	err := b.Move(-1, 0, 1, UP, RED)
+	err := b.Move(-1, 0, 1, []Direction{UP}, RED)
 	if err != ErrTileOutOfBounds {
 		t.Errorf("Expected GetTileErrorOutOfBounds, got %v", err)
 	}
-	err = b.Move(0, -1, 1, UP, RED)
+	err = b.Move(0, -1, 1, []Direction{UP}, RED)
 	if err != ErrTileOutOfBounds {
 		t.Errorf("Expected GetTileErrorOutOfBounds, got %v", err)
 	}
-	err = b.Move(8, 0, 1, UP, RED)
+	err = b.Move(8, 0, 1, []Direction{UP}, RED)
 	if err != ErrTileOutOfBounds {
 		t.Errorf("Expected GetTileErrorOutOfBounds, got %v", err)
 	}
-	err = b.Move(0, 8, 1, UP, RED)
+	err = b.Move(0, 8, 1, []Direction{UP}, RED)
 	if err != ErrTileOutOfBounds {
 		t.Errorf("Expected GetTileErrorOutOfBounds, got %v", err)
 	}
@@ -466,9 +479,53 @@ func TestMoveOutOfBounds(t *testing.T) {
 
 func TestMoveNoPiece(t *testing.T) {
 	b := NewBoard()
-	err := b.Move(3, 3, 1, UP, RED)
+	err := b.Move(3, 3, 1, []Direction{UP}, RED)
 	if err != ErrNoPieceToMove {
 		t.Errorf("Expected ErrNoPieceToMove, got %v", err)
+	}
+	err = b.AddPiece(3, 3, Piece{Color: RED, Exists: true}, RED)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	err = b.Move(3, 3, 0, []Direction{UP}, RED)
+	if err != ErrMustMoveAtLeastOnePiece {
+		t.Errorf("Expected MustMoveAtLeastOnePiece, got %v", err)
+	}
+}
+
+func TestMoveNoDirections(t *testing.T) {
+	b := NewBoard()
+	err := b.AddPiece(3, 3, Piece{Color: RED, Exists: true}, RED)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	err = b.Move(3, 3, 1, []Direction{}, RED)
+	if err != ErrNoDirections {
+		t.Errorf("Expected ErrNoDirections, got %v", err)
+	}
+}
+
+func TestMoveWrongAmountDirections(t *testing.T) {
+	b := NewBoard()
+	err := b.AddPiece(3, 3, Piece{Color: RED, Exists: true}, RED)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	err = b.Move(3, 3, 1, []Direction{UP, UP}, RED)
+	if err != ErrWrongDirectionAmount {
+		t.Errorf("Expected ErrWrongDirectionAmount, got %v", err)
+	}
+}
+
+func TestMoveTooManyPieces(t *testing.T) {
+	b := NewBoard()
+	err := b.AddPiece(3, 3, Piece{Color: RED, Exists: true}, RED)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+	err = b.Move(3, 3, 2, []Direction{UP, UP}, RED)
+	if err != ErrTooManyPieces {
+		t.Errorf("Expected ErrorTooManyPieces, got %v", err)
 	}
 }
 
@@ -478,7 +535,7 @@ func TestMoveDifferentColor(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
-	err = b.Move(3, 3, 1, UP, GREEN)
+	err = b.Move(3, 3, 1, []Direction{UP}, GREEN)
 	if err != ErrWrongColor {
 		t.Errorf("Expected MoveErrorWrongColor, got %v", err)
 	}
@@ -491,7 +548,7 @@ func TestMoveDifferentColor(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
-	err = b.Move(3, 3, 1, UP, GREEN)
+	err = b.Move(3, 3, 1, []Direction{UP}, GREEN)
 	if err != ErrWrongColor {
 		t.Errorf("Expected MoveErrorWrongColor, got %v", err)
 	}
@@ -517,7 +574,7 @@ func MoveDirectionTest(initalLocation [2]int, direction Direction) (err error) {
 	if err != nil {
 		return err
 	}
-	err = b.Move(initalLocation[0], initalLocation[1], 1, direction, RED)
+	err = b.Move(initalLocation[0], initalLocation[1], 1, []Direction{direction}, RED)
 	if err != nil {
 		return err
 	}
@@ -550,7 +607,7 @@ func MoveDirectionTest(initalLocation [2]int, direction Direction) (err error) {
 	if err != nil {
 		return err
 	}
-	err = b.Move(initalLocation[0], initalLocation[1], 1, direction, RED)
+	err = b.Move(initalLocation[0], initalLocation[1], 1, []Direction{direction}, RED)
 	if err != nil {
 		return err
 	}
@@ -584,7 +641,7 @@ func MoveDirectionTest(initalLocation [2]int, direction Direction) (err error) {
 	if err != nil {
 		return err
 	}
-	err = b.Move(initalLocation[0], initalLocation[1], 2, direction, RED)
+	err = b.Move(initalLocation[0], initalLocation[1], 2, []Direction{direction, direction}, RED)
 	if err != nil {
 		return err
 	}
@@ -643,4 +700,7 @@ func TestMoveRight(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+func TestMoveMultipleDirections(t *testing.T) {
 }

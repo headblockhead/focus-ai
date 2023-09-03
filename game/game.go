@@ -143,43 +143,18 @@ func (b *Board) AddFromReserves(color Color, x int, y int) (err error) {
 	return err
 }
 
-func (b *Board) moveDirection(x int, y int, tile *Tile, moveModifier [2]int, piecesToMove int, playerColor Color) (err error) {
-	destTile, err := b.GetTile(x+moveModifier[0], y+moveModifier[1])
-	if err != nil {
-		return err
-	}
-	if !destTile.useable {
-		return ErrTileDestinationUnusable
-	}
-	piecesMoved := 0
-	for i := len(tile.Pieces) - 1; i >= 0; i-- {
-		if piecesMoved == piecesToMove {
-			break
-		}
-		if !tile.Pieces[i].Exists {
-			continue
-		}
-		err = b.AddPiece(x+moveModifier[0], y+moveModifier[1], tile.Pieces[i], playerColor)
-		if err != nil {
-			return err
-		}
-
-		tile.Pieces[i] = Piece{Color: 0, Exists: false}
-
-		piecesMoved += 1
-	}
-	return nil
-}
-
 var (
 	ErrTileSourceNonUsable     = errors.New("Cannot move from unusable tile")
 	ErrTileDestinationUnusable = errors.New("Cannot move to unusable tile")
 	ErrNoPieceToMove           = errors.New("No piece to move")
 	ErrMustMoveAtLeastOnePiece = errors.New("You must move at least one piece")
+	ErrTooManyPieces           = errors.New("You cannot move more pieces than you have")
 	ErrWrongColor              = errors.New("You cannot move your opponent's piece")
+	ErrWrongDirectionAmount    = errors.New("You must have the same number of directions as pieces to move")
+	ErrNoDirections            = errors.New("You must specify directions to move")
 )
 
-func (b *Board) Move(x int, y int, piecesToMove int, direction Direction, playerColor Color) (err error) {
+func (b *Board) Move(x int, y int, piecesToMove int, directions []Direction, playerColor Color) (err error) {
 	tile, err := b.GetTile(x, y)
 	if err != nil {
 		return err
@@ -208,28 +183,47 @@ func (b *Board) Move(x int, y int, piecesToMove int, direction Direction, player
 	if piecesToMove == 0 {
 		return ErrMustMoveAtLeastOnePiece
 	}
+	if (5 - piecesToMove) < allPiecesCheck {
+		return ErrTooManyPieces
+	}
+	if len(directions) == 0 {
+		return ErrNoDirections
+	}
+	if len(directions) != piecesToMove {
+		return ErrWrongDirectionAmount
+	}
+	relativeMovement := [2]int{0, 0}
 
-	switch direction {
-	case UP:
-		err = b.moveDirection(x, y, tile, [2]int{0, -1 * piecesToMove}, piecesToMove, playerColor)
-		if err != nil {
-			return err
-		}
-	case DOWN:
-		err = b.moveDirection(x, y, tile, [2]int{0, 1 * piecesToMove}, piecesToMove, playerColor)
-		if err != nil {
-			return err
-		}
-	case LEFT:
-		err = b.moveDirection(x, y, tile, [2]int{-1 * piecesToMove, 0}, piecesToMove, playerColor)
-		if err != nil {
-			return err
-		}
-	case RIGHT:
-		err = b.moveDirection(x, y, tile, [2]int{1 * piecesToMove, 0}, piecesToMove, playerColor)
-		if err != nil {
-			return err
+	for _, direction := range directions {
+		switch direction {
+		case UP:
+			relativeMovement[1] -= 1
+		case DOWN:
+			relativeMovement[1] += 1
+		case LEFT:
+			relativeMovement[0] -= 1
+		case RIGHT:
+			relativeMovement[0] += 1
 		}
 	}
+
+	destinationTile, err := b.GetTile(x+relativeMovement[0], y+relativeMovement[1])
+	if err != nil {
+		return err
+	}
+	if !destinationTile.useable {
+		return ErrTileDestinationUnusable
+	}
+
+	for i := 0; i < piecesToMove; i++ {
+		for j := len(tile.Pieces) - 1; j >= 0; j-- {
+			if tile.Pieces[j].Exists {
+				b.AddPiece(x+relativeMovement[0], y+relativeMovement[1], tile.Pieces[j], playerColor)
+				tile.Pieces[j].Exists = false
+				break
+			}
+		}
+	}
+
 	return nil
 }
